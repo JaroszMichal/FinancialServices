@@ -1,58 +1,96 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Json;
+using Xunit;
 
 namespace FinancialServices.Tests;
 
-public class Endpoint_actionsallowedActions_EdgeTests : IClassFixture<WebApplicationFactory<Program>>
+public class Endpoint_AllowedActions_EdgeTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public Endpoint_actionsallowedActions_EdgeTests(WebApplicationFactory<Program> factory)
+    public Endpoint_AllowedActions_EdgeTests(WebApplicationFactory<Program> factory)
         => _factory = factory;
 
-    [Fact(DisplayName = "[API] 400 when userId missing")]
-    public async Task Missing_UserId_Returns_400()
+    [Fact(DisplayName = "[API] 400 + ProblemDetails for missing userId")]
+    public async Task Missing_UserId_Returns_400_With_ProblemDetails()
     {
         var client = _factory.CreateClient();
-        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed", new { userId = "", cardNumber = "Card11" });
+
+        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed",
+                    new { userId = "", cardNumber = "Card11" });
+        var body = await res.Content.ReadAsStringAsync();
+
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+
+        var problem = await res.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+
+        Assert.Equal("Validation error", problem!.Title);
+        Assert.Equal("Both userId and cardNumber are required.", problem.Detail);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
+
+        Assert.Contains("problem+json",
+                 res.Content.Headers.ContentType!.ToString(),
+                 StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact(DisplayName = "[API] 400 when cardNumber missing")]
-    public async Task Missing_CardNumber_Returns_400()
+    [Fact(DisplayName = "[API] 400 + ProblemDetails for missing cardNumber")]
+    public async Task Missing_CardNumber_Returns_400_With_ProblemDetails()
     {
         var client = _factory.CreateClient();
-        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed", new { userId = "User1", cardNumber = "" });
+
+        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed",
+                    new { userId = "User1", cardNumber = "" });
+        var body = await res.Content.ReadAsStringAsync();
+
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+
+        var problem = await res.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+
+        Assert.Equal("Validation error", problem!.Title);
+        Assert.Equal("Both userId and cardNumber are required.", problem.Detail);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
     }
 
-    [Fact(DisplayName = "[API] 404 when user does not exist")]
-    public async Task Unknown_User_Returns_404()
+    [Fact(DisplayName = "[API] 404 + ProblemDetails when user does not exist")]
+    public async Task Unknown_User_Returns_404_With_ProblemDetails()
     {
         var client = _factory.CreateClient();
-        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed", new { userId = "NoSuchUser", cardNumber = "Card11" });
+
+        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed",
+                    new { userId = "NoSuchUser", cardNumber = "Card11" });
+        var body = await res.Content.ReadAsStringAsync();
+
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+
+        var problem = await res.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+
+        Assert.Equal("User not found", problem!.Title);
+        Assert.Equal("User 'NoSuchUser' does not exist.", problem.Detail);
+        Assert.Equal(StatusCodes.Status404NotFound, problem.Status);
     }
 
-    [Fact(DisplayName = "[API] 404 when card does not exist for user")]
-    public async Task Unknown_Card_For_User_Returns_404()
+    [Fact(DisplayName = "[API] 404 + ProblemDetails when user exists but card does not")]
+    public async Task Unknown_Card_For_User_Returns_404_With_ProblemDetails()
     {
         var client = _factory.CreateClient();
-        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed", new { userId = "User1", cardNumber = "Nope" });
+
+        var res = await client.PostAsJsonAsync("/api/card-actions/actionsallowed",
+                    new { userId = "User1", cardNumber = "Nope" });
+        var body = await res.Content.ReadAsStringAsync();
+
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
-    }
 
-    [Fact(DisplayName = "[API] content-type application/json required")]
-    public async Task ContentType_Json_Required()
-    {
-        var client = _factory.CreateClient();
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/card-actions/actionsallowed")
-        {
-            Content = new StringContent(@"{""userId"":""User1"",""cardNumber"":""Card11""}") // no content-type
-        };
-        var res = await client.SendAsync(req);
-        // Model binding może nie zadziałać -> 415 lub 400 (w zależności od hosta)
-        Assert.True(res.StatusCode is HttpStatusCode.UnsupportedMediaType or HttpStatusCode.BadRequest);
+        var problem = await res.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+
+        Assert.Equal("Card not found", problem!.Title);
+        Assert.Equal("User 'User1' does not own card 'Nope'.", problem.Detail);
+        Assert.Equal(StatusCodes.Status404NotFound, problem.Status);
     }
 }

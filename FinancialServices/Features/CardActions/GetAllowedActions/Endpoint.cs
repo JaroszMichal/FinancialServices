@@ -22,7 +22,10 @@ public static class Endpoint
         [FromBody] Request request,
         [FromServices] CardService cardService)
     {
-        if (string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.CardNumber))
+        var userId = request.UserId?.Trim();
+        var cardNumber = request.CardNumber?.Trim();
+
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(cardNumber))
         {
             return Results.Problem(new ProblemDetails
             {
@@ -32,24 +35,33 @@ public static class Endpoint
             });
         }
 
-        var details = await cardService.GetCardDetails(request.UserId.Trim(), request.CardNumber.Trim());
-        if (details is null)
+        var lookup = await cardService.GetCardDetails(userId, cardNumber);
+
+        if (lookup.Status == CardLookupStatus.UserNotFound)
         {
             return Results.Problem(new ProblemDetails
             {
-                Title = "Not found",
-                Detail = "Card not found for given userId and cardNumber.",
+                Title = "User not found",
+                Detail = $"User '{userId}' does not exist.",
                 Status = StatusCodes.Status404NotFound
             });
         }
 
-        var allowed = AllowedActionsCalculator.GetAllowedAsStrings(details);
-        // if enums should be returned:
-        // var allowed = AllowedActionsCalculator.GetAllowed(details);
+        if (lookup.Status == CardLookupStatus.CardNotFound)
+        {
+            return Results.Problem(new ProblemDetails
+            {
+                Title = "Card not found",
+                Detail = $"User '{userId}' does not own card '{cardNumber}'.",
+                Status = StatusCodes.Status404NotFound
+            });
+        }
 
-        var response = new Response(
-            allowed
-        );
+        // OK
+        var details = lookup.Details!;
+
+        var allowed = AllowedActionsCalculator.GetAllowedAsStrings(details);
+        var response = new Response(allowed);
 
         return Results.Ok(response);
     }

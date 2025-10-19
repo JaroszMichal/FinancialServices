@@ -5,16 +5,16 @@ using FinancialServices.API.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Us³ugi
+// Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Mock danych z PDF: w DI jako Singleton
+// Mocked data from the PDF: register CardService in DI as a singleton
 builder.Services.AddSingleton<CardService>();
 
 var app = builder.Build();
 
-// Globalny handler wyj¹tków (ProblemDetails)
+// Global exception handler (ProblemDetails)
 app.UseExceptionHandler(errApp =>
 {
     errApp.Run(async ctx =>
@@ -39,13 +39,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Redirect do HTTPS tylko poza Dockerem
+// Redirect to HTTPS only outside of Docker
 if (!app.Environment.IsEnvironment("Docker"))
 {
     app.UseHttpsRedirection();
 }
 
-// ===== Mapowanie feature'u (bez logiki tutaj) =====
+// ===== Feature mapping (no business logic here) =====
 var actions = app.MapGroup("/api/card-actions").WithTags("CardActions");
 FinancialServices.API.Features.CardActions.GetAllowedActions.Endpoint.Map(actions);
 

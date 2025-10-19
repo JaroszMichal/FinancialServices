@@ -1,13 +1,12 @@
-﻿using System.Linq;
-using FinancialServices.API.Domain;
+﻿using FinancialServices.API.Domain;
 
 namespace FinancialServices.API.Features.CardActions.GetAllowedActions;
 
 public static class AllowedActionsCalculator
 {
     /// <summary>
-    /// Zwraca dozwolone akcje jako enumy (preferowane w kodzie).
-    /// Wykorzystuje stałą macierz reguł z CardActionMatrix.
+    /// Returns allowed actions as enums (preferred in code).
+    /// Uses the constant rules matrix from CardActionMatrix.
     /// </summary>
     public static CardAction[] GetAllowed(CardDetails card)
         => CardActionMatrix
@@ -15,7 +14,7 @@ public static class AllowedActionsCalculator
             .ToArray();
 
     /// <summary>
-    /// Wygodny wrapper, jeśli chcesz zwrócić teksty "ACTION1"..."ACTION13" do JSON-a.
+    /// Convenience wrapper if you want to return "ACTION1"..."ACTION13" strings in JSON.
     /// </summary>
     public static string[] GetAllowedAsStrings(CardDetails card)
         => GetAllowed(card)

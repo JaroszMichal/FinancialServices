@@ -2,21 +2,35 @@
 
 namespace FinancialServices.API.Domain;
 
+public enum CardLookupStatus
+{
+    Ok,
+    UserNotFound,
+    CardNotFound
+}
+
+public record CardLookupResult(CardLookupStatus Status, CardDetails? Details);
+
 public class CardService
 {
     private readonly Dictionary<string, Dictionary<string, CardDetails>> _userCards = CreateSampleUserCards();
 
-    public async Task<CardDetails?> GetCardDetails(string userId, string cardNumber)
+    public async Task<CardLookupResult> GetCardDetails(string userId, string cardNumber)
     {
-        // W realu tu byłby call HTTP; dla zadania – mock.
+        // In production, you'd call an external API/DB; here we simulate latency.
         await Task.Delay(1000);
 
-        if (!_userCards.TryGetValue(userId, out var cards) ||
-            !cards.TryGetValue(cardNumber, out var cardDetails))
+        if (!_userCards.TryGetValue(userId, out var cards))
         {
-            return null;
+            return new CardLookupResult(CardLookupStatus.UserNotFound, null);
         }
-        return cardDetails;
+
+        if (!cards.TryGetValue(cardNumber, out var cardDetails))
+        {
+            return new CardLookupResult(CardLookupStatus.CardNotFound, null);
+        }
+
+        return new CardLookupResult(CardLookupStatus.Ok, cardDetails);
     }
 
     private static Dictionary<string, Dictionary<string, CardDetails>> CreateSampleUserCards()

@@ -73,3 +73,4 @@ var actions = app.MapGroup("/api/card-actions").WithTags("CardActions");
 FinancialServices.API.Features.CardActions.GetAllowedActions.Endpoint.Map(actions);
 
 app.Run();
+public partial class Program { }

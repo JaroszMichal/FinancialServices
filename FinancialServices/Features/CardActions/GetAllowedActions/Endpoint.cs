@@ -8,7 +8,7 @@ public static class Endpoint
 {
     public static void Map(RouteGroupBuilder group)
     {
-        group.MapPost("/allowed", HandleAsync)
+        group.MapPost("/actionsallowed", HandleAsync)
              .WithName("GetAllowedCardActions")
              .WithSummary("Get allowed actions for a given card")
              .WithDescription("Accepts userId and cardNumber, returns the list of allowed actions for that card.")

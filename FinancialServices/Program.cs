@@ -1,7 +1,9 @@
-using System.Net.Mime;
+using FinancialServices.API.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using FinancialServices.API.Domain;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using System.Net.Mime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,16 +21,37 @@ app.UseExceptionHandler(errApp =>
 {
     errApp.Run(async ctx =>
     {
-        var ex = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var feature = ctx.Features.Get<IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        var traceId = Activity.Current?.Id ?? ctx.TraceIdentifier;
+        var status = ex switch
+        {
+            ValidationException => StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
         var problem = new ProblemDetails
         {
-            Title = "Unexpected error",
-            Detail = ex?.Message,
-            Status = StatusCodes.Status500InternalServerError,
-            Type = "https://httpstatuses.com/500"
+            Title = status == 500 ? "Unexpected error" : ex?.GetType().Name,
+            Status = status,
+            Type = $"https://httpstatuses.com/{status}",
+            // In production do not expose ex.Message;
+            Detail = ctx.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()
+                     ? ex?.Message
+                     : $"An error occurred. TraceId: {traceId}"
         };
+
+        // Optional RFC7807 extensions (custom fields)
+        problem.Extensions["traceId"] = traceId;
+
+        // Logging (short form), in real requires configuration (e.g. add email conf)
+        var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
+                                        .CreateLogger("GlobalExceptionHandler");
+        logger.LogError(ex, "Unhandled exception, traceId={TraceId}", traceId);
+
         ctx.Response.ContentType = MediaTypeNames.Application.Json;
-        ctx.Response.StatusCode = problem.Status ?? 500;
+        ctx.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
         await ctx.Response.WriteAsJsonAsync(problem);
     });
 });

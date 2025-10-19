@@ -1,12 +1,16 @@
 using System.Net.Mime;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using FinancialServices.API.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Us³ugi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Mock danych z PDF: w DI jako Singleton
+builder.Services.AddSingleton<CardService>();
 
 var app = builder.Build();
 
@@ -41,55 +45,8 @@ if (!app.Environment.IsEnvironment("Docker"))
     app.UseHttpsRedirection();
 }
 
-// ===== Endpointy =====
-
-// Health
-app.MapGet("/health", () => Results.Ok(new { status = "OK" }))
-   .WithName("Health")
-   .WithTags("System");
-
-// POST /api/actions
-app.MapPost("/api/actions", (ActionRequest request) =>
-{
-    var (ok, problem) = Validators.Validate(request);
-    if (!ok) return Results.Problem(problem);
-
-    var created = new ActionResponse(
-        Id: Guid.NewGuid(),
-        Type: request.Type.Trim(),
-        Amount: request.Amount,
-        Currency: request.Currency.ToUpperInvariant(),
-        CreatedAt: DateTimeOffset.UtcNow
-    );
-
-    return Results.Created($"/api/actions/{created.Id}", created);
-})
-.WithName("CreateAction")
-.Produces<ActionResponse>(StatusCodes.Status201Created)
-.ProducesProblem(StatusCodes.Status400BadRequest)
-.ProducesProblem(StatusCodes.Status500InternalServerError)
-.WithTags("Actions");
+// ===== Mapowanie feature'u (bez logiki tutaj) =====
+var actions = app.MapGroup("/api/card-actions").WithTags("CardActions");
+FinancialServices.API.Features.CardActions.GetAllowedActions.Endpoint.Map(actions);
 
 app.Run();
-
-
-// ===== Deklaracje typów (po app.Run!) =====
-public record ActionRequest(string Type, decimal Amount, string Currency);
-public record ActionResponse(Guid Id, string Type, decimal Amount, string Currency, DateTimeOffset CreatedAt);
-
-static class Validators
-{
-    public static (bool ok, ProblemDetails? problem) Validate(ActionRequest r)
-    {
-        if (string.IsNullOrWhiteSpace(r.Type))
-            return (false, new ProblemDetails { Title = "Validation error", Detail = "Type is required.", Status = StatusCodes.Status400BadRequest });
-
-        if (r.Amount <= 0)
-            return (false, new ProblemDetails { Title = "Validation error", Detail = "Amount must be > 0.", Status = StatusCodes.Status400BadRequest });
-
-        if (string.IsNullOrWhiteSpace(r.Currency) || r.Currency.Length is < 3 or > 3)
-            return (false, new ProblemDetails { Title = "Validation error", Detail = "Currency must be a 3-letter code (e.g., PLN).", Status = StatusCodes.Status400BadRequest });
-
-        return (true, null);
-    }
-}

@@ -1,9 +1,6 @@
 ﻿namespace FinancialServices.API.Features.CardActions.GetAllowedActions;
 
 public record Response(
-    string UserId,
-    string CardNumber,
-    string CardType,
-    string CardStatus,
+    //The task requirements demand that only the list of actions be returned.
     string[] AllowedActions
 );

@@ -20,27 +20,27 @@ public enum CardAction
 }
 
 /// <summary>
-/// Stałe tablice z dostępnością akcji z tabeli zadania:
-/// - AllowedByType: kolumny CARD KIND (PREPAID/DEBIT/CREDIT)
-/// - AllowedByStatus: kolumny CARD STATUS (ORDERED..CLOSED), z warunkami PIN
+/// Constant tables with action availability from the task table:
+/// - AllowedByType: CARD KIND columns (PREPAID/DEBIT/CREDIT)
+/// - AllowedByStatus: CARD STATUS columns (ORDERED..CLOSED), with PIN conditions
 /// </summary>
 public static class CardActionMatrix
 {
-    // ========= CARD KIND (z lewej części tabeli) =========
-    // Jeśli w kolumnie dla danego typu jest "TAK" → akcja jest dopuszczalna dla typu.
-    // Jeśli "NIE" → akcja dla tego typu nie może wystąpić, niezależnie od statusu.
+    // ========= CARD KIND (left part of the table) =========
+    // If the column for a given type says "YES" → the action is allowed for that type.
+    // If it says "NO" → the action cannot occur for that type, regardless of status.
     public static readonly IReadOnlyDictionary<CardType, IReadOnlySet<CardAction>> AllowedByType =
         new ReadOnlyDictionary<CardType, IReadOnlySet<CardAction>>(
             new Dictionary<CardType, IReadOnlySet<CardAction>>
             {
-                // Na podstawie kolumn PREPAID / DEBIT / CREDIT
+                // Based on PREPAID / DEBIT / CREDIT columns
                 [CardType.Prepaid] = new HashSet<CardAction>
                 {
                     CardAction.ACTION1,
                     CardAction.ACTION2,
                     CardAction.ACTION3,
                     CardAction.ACTION4,
-                    // Wg tabeli: ACTION5 dla Prepaid = NIE (nie dodajemy)
+                    // According to the table: ACTION5 for Prepaid = NIE (do not include)
                     CardAction.ACTION6,
                     CardAction.ACTION7,
                     CardAction.ACTION8,
@@ -56,7 +56,7 @@ public static class CardActionMatrix
                     CardAction.ACTION2,
                     CardAction.ACTION3,
                     CardAction.ACTION4,
-                    CardAction.ACTION5,
+                    // According to the table: ACTION5 for Debit = NIE (do not include)
                     CardAction.ACTION6,
                     CardAction.ACTION7,
                     CardAction.ACTION8,
@@ -84,11 +84,11 @@ public static class CardActionMatrix
                 },
             });
 
-    // ========= CARD STATUS (prawa część tabeli) =========
-    // Każdy status ma 3 zbiory:
-    //  - Always: "TAK"
-    //  - RequiresPinSet: "TAK – jeżeli pin nadany" / "TAK – ale jak nie ma pin to NIE"
-    //  - RequiresNoPin: "TAK – jeżeli brak pin"
+    // ========= CARD STATUS (right part of the table) =========
+    // Each status has 3 sets:
+    //  - Always: "YES"
+    //  - RequiresPinSet: "YES – if PIN is set" / "YES – but if there is no PIN then NO"
+    //  - RequiresNoPin: "YES – if there is no PIN"
     public sealed record StatusAvailability(
         IReadOnlySet<CardAction> Always,
         IReadOnlySet<CardAction> RequiresPinSet,
@@ -109,17 +109,16 @@ public static class CardActionMatrix
                         CardAction.ACTION8,
                         CardAction.ACTION9,
                         CardAction.ACTION10,
-                        CardAction.ACTION11,
                         CardAction.ACTION12,
                         CardAction.ACTION13
                     },
                     RequiresPinSet: new HashSet<CardAction>
                     {
-                        CardAction.ACTION6 // "TAK – ale jak nie ma pin to NIE"
+                        CardAction.ACTION6 // "YES – but if there is no PIN then NO"
                     },
                     RequiresNoPin: new HashSet<CardAction>
                     {
-                        CardAction.ACTION7 // "TAK – jeżeli brak pin"
+                        CardAction.ACTION7 // "YES – if there is no PIN"
                     }
                 ),
 
@@ -127,6 +126,7 @@ public static class CardActionMatrix
                 [CardStatus.Inactive] = new StatusAvailability(
                     Always: new HashSet<CardAction>
                     {
+                        CardAction.ACTION2,
                         CardAction.ACTION3,
                         CardAction.ACTION4,
                         CardAction.ACTION5,
@@ -152,7 +152,6 @@ public static class CardActionMatrix
                     Always: new HashSet<CardAction>
                     {
                         CardAction.ACTION1,
-                        CardAction.ACTION2,
                         CardAction.ACTION3,
                         CardAction.ACTION4,
                         CardAction.ACTION5,
@@ -177,25 +176,16 @@ public static class CardActionMatrix
                 [CardStatus.Restricted] = new StatusAvailability(
                     Always: new HashSet<CardAction>
                     {
-                        CardAction.ACTION1,
-                        CardAction.ACTION2,
                         CardAction.ACTION3,
                         CardAction.ACTION4,
                         CardAction.ACTION5,
-                        CardAction.ACTION8,
-                        CardAction.ACTION9,
-                        CardAction.ACTION10,
-                        CardAction.ACTION11,
-                        CardAction.ACTION12,
-                        CardAction.ACTION13
+                        CardAction.ACTION9
                     },
                     RequiresPinSet: new HashSet<CardAction>
                     {
-                        CardAction.ACTION6
                     },
                     RequiresNoPin: new HashSet<CardAction>
                     {
-                        CardAction.ACTION7
                     }
                 ),
 
@@ -203,42 +193,29 @@ public static class CardActionMatrix
                 [CardStatus.Blocked] = new StatusAvailability(
                     Always: new HashSet<CardAction>
                     {
-                        // z tabeli: 1 = NIE, 2 = TAK, 3 = TAK, 4 = TAK, 5 = TAK,
-                        CardAction.ACTION2,
                         CardAction.ACTION3,
                         CardAction.ACTION4,
                         CardAction.ACTION5,
                         CardAction.ACTION8,
-                        CardAction.ACTION9,
-                        CardAction.ACTION10,
-                        CardAction.ACTION11,
-                        CardAction.ACTION12
-                        // 13 = NIE
+                        CardAction.ACTION9
                     },
                     RequiresPinSet: new HashSet<CardAction>
                     {
-                        // z tabeli: "TAK – jeżeli pin nadany"
+                        // from the table: "YES – if PIN is set"
                         CardAction.ACTION6,
                         CardAction.ACTION7
                     },
-                    RequiresNoPin: new HashSet<CardAction>
-                    {
-                        // brak pozycji „jeżeli brak pin” dla BLOCKED
-                    }
+                    RequiresNoPin: new HashSet<CardAction>()
                 ),
 
                 // ===== EXPIRED =====
                 [CardStatus.Expired] = new StatusAvailability(
                     Always: new HashSet<CardAction>
                     {
-                        // z tabeli: 3,4,5,9,11,12,13 = TAK
                         CardAction.ACTION3,
                         CardAction.ACTION4,
                         CardAction.ACTION5,
-                        CardAction.ACTION9,
-                        CardAction.ACTION11,
-                        CardAction.ACTION12,
-                        CardAction.ACTION13
+                        CardAction.ACTION9
                     },
                     RequiresPinSet: new HashSet<CardAction>(),
                     RequiresNoPin: new HashSet<CardAction>()
@@ -248,9 +225,9 @@ public static class CardActionMatrix
                 [CardStatus.Closed] = new StatusAvailability(
                     Always: new HashSet<CardAction>
                     {
-                        // z tabeli: 3,4,9 = TAK (reszta NIE)
                         CardAction.ACTION3,
                         CardAction.ACTION4,
+                        CardAction.ACTION5,
                         CardAction.ACTION9
                     },
                     RequiresPinSet: new HashSet<CardAction>(),
@@ -259,11 +236,11 @@ public static class CardActionMatrix
             });
 
     /// <summary>
-    /// Zwraca finalny zestaw akcji dla (type, status, isPinSet), tj. część wspólną
-    /// AllowedByType[type] oraz:
+    /// Returns the final set of actions for (type, status, isPinSet), i.e., the intersection of
+    /// AllowedByType[type] and:
     ///  - AllowedByStatus[status].Always
-    ///  - + AllowedByStatus[status].RequiresPinSet (jeśli isPinSet)
-    ///  - + AllowedByStatus[status].RequiresNoPin (jeśli !isPinSet)
+    ///  - + AllowedByStatus[status].RequiresPinSet (if isPinSet)
+    ///  - + AllowedByStatus[status].RequiresNoPin (if !isPinSet)
     /// </summary>
     public static IReadOnlyList<CardAction> GetAllowedActions(CardType type, CardStatus status, bool isPinSet)
     {
@@ -278,7 +255,7 @@ public static class CardActionMatrix
         else
             candidate.UnionWith(byStatus.RequiresNoPin);
 
-        // część wspólna z dopuszczalnymi dla typu
+        // intersection with actions allowed for the given type
         candidate.IntersectWith(byType);
 
         return candidate.OrderBy(a => a).ToArray();

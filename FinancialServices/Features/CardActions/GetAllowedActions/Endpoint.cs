@@ -44,14 +44,10 @@ public static class Endpoint
         }
 
         var allowed = AllowedActionsCalculator.GetAllowedAsStrings(details);
-        // albo, jeśli wolisz enumy:
+        // if enums should be returned:
         // var allowed = AllowedActionsCalculator.GetAllowed(details);
 
         var response = new Response(
-            request.UserId,
-            details.CardNumber,
-            details.CardType.ToString().ToUpperInvariant(),
-            details.CardStatus.ToString().ToUpperInvariant(),
             allowed
         );
 
